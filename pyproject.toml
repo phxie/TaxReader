@@ -7,6 +7,9 @@ requires-python = ">=3.12"
 dependencies = [
     "docling>=2.107.0",
     "easyocr>=1.7.2",
+    "google-api-python-client>=2.198.0",
+    "google-auth>=2.55.2",
     "pymupdf>=1.28.0",
     "pytesseract>=0.3.13",
+    "python-dotenv>=1.2.2",
 ]
