@@ -159,6 +159,11 @@ service-account*.json
 *.db
 *.db-wal
 *.db-shm
+
+# Uploaded tax notice PDFs (personal documents, not committed)
+taxdocs/*
+!taxdocs/.gitkeep
+
 env/
 venv/
 ENV/
