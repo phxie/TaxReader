@@ -67,12 +67,13 @@ export default function App() {
       <table>
         <thead>
           <tr>
-            <th>Filename</th>
+            <th>Source Document</th>
+            <th>Notice Date</th>
             <th>Tax Year</th>
-            <th>Notice Type</th>
+            <th>Jurisdiction</th>
+            <th>Issue Summary</th>
             <th>Amount Due</th>
-            <th>Issuing Agency</th>
-            <th>Summary</th>
+            <th>Status</th>
             <th></th>
           </tr>
         </thead>
@@ -80,11 +81,12 @@ export default function App() {
           {documents.map((doc) => (
             <tr key={doc.id}>
               <td>{doc.filename}</td>
+              <td>{display(doc.notice_date)}</td>
               <td>{display(doc.tax_year)}</td>
-              <td>{display(doc.notice_type)}</td>
+              <td>{display(doc.jurisdiction)}</td>
+              <td>{display(doc.issue_summary)}</td>
               <td>{formatAmount(doc.amount_due)}</td>
-              <td>{display(doc.issuing_agency)}</td>
-              <td>{display(doc.summary)}</td>
+              <td>{doc.status}</td>
               <td>
                 <a href={documentFileUrl(doc.id)} target="_blank" rel="noreferrer">
                   View

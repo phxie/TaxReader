@@ -21,13 +21,13 @@ MODEL = "claude-haiku-4-5"
 TAX_NOTICE_SCHEMA = {
     "type": "object",
     "properties": {
-        "tax_year": {"type": "integer", "description": "The tax year referenced in the notice"},
-        "notice_type": {"type": "string", "description": "e.g. CP2000, balance due, audit notice"},
+        "notice_date": {"type": ["string", "null"], "description": "Date printed on the notice, in YYYY-MM-DD format if determinable"},
+        "tax_year": {"type": ["integer", "null"], "description": "The tax year referenced in the notice"},
+        "jurisdiction": {"type": ["string", "null"], "description": "e.g. IRS, California Franchise Tax Board, etc."},
+        "issue_summary": {"type": "string", "description": "1-2 sentence plain-language summary of the issue"},
         "amount_due": {"type": ["number", "null"], "description": "Total amount owed, if stated"},
-        "issuing_agency": {"type": ["string", "null"], "description": "e.g. IRS, state department of revenue"},
-        "summary": {"type": "string", "description": "1-2 sentence plain-language summary"},
     },
-    "required": ["tax_year", "notice_type", "summary"],
+    "required": ["issue_summary"],
     "additionalProperties": False,
 }
 

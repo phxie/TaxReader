@@ -3,11 +3,12 @@ export interface TaxDocument {
   filename: string;
   file_path: string;
   uploaded_at: string;
+  notice_date: string | null;
   tax_year: number | null;
-  notice_type: string | null;
+  jurisdiction: string | null;
+  issue_summary: string | null;
   amount_due: number | null;
-  issuing_agency: string | null;
-  summary: string | null;
+  status: string;
 }
 
 export async function listDocuments(): Promise<TaxDocument[]> {

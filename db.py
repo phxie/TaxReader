@@ -1,5 +1,5 @@
 """
-SQLite storage for uploaded tax notice PDFs and their GPT-4o-extracted
+SQLite storage for uploaded tax notice PDFs and their Claude-extracted
 fields. Each upload is a new row (no dedup/upsert needed).
 
 WAL mode is enabled so the Flask app can read and write concurrently
@@ -18,11 +18,12 @@ CREATE TABLE IF NOT EXISTS documents (
     filename TEXT NOT NULL,
     file_path TEXT NOT NULL,
     uploaded_at TEXT NOT NULL,
+    notice_date TEXT,
     tax_year INTEGER,
-    notice_type TEXT,
+    jurisdiction TEXT,
+    issue_summary TEXT,
     amount_due REAL,
-    issuing_agency TEXT,
-    summary TEXT
+    status TEXT NOT NULL DEFAULT 'open'
 );
 """
 
@@ -48,18 +49,18 @@ def insert_document(conn: sqlite3.Connection, filename: str, file_path: str, fie
     cursor = conn.execute(
         """
         INSERT INTO documents
-            (filename, file_path, uploaded_at, tax_year, notice_type, amount_due, issuing_agency, summary)
-        VALUES (?, ?, ?, ?, ?, ?, ?, ?)
+            (filename, file_path, uploaded_at, notice_date, tax_year, jurisdiction, issue_summary, amount_due, status)
+        VALUES (?, ?, ?, ?, ?, ?, ?, ?, 'open')
         """,
         (
             filename,
             file_path,
             datetime.now(timezone.utc).isoformat(),
+            fields.get("notice_date"),
             fields.get("tax_year"),
-            fields.get("notice_type"),
+            fields.get("jurisdiction"),
+            fields.get("issue_summary"),
             fields.get("amount_due"),
-            fields.get("issuing_agency"),
-            fields.get("summary"),
         ),
     )
     conn.commit()
