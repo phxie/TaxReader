@@ -1,71 +1,73 @@
 """
-GPT-4o-based extraction of structured fields from a tax notice PDF.
+Claude Haiku-based extraction of structured fields from a tax notice PDF.
 
-The PDF is sent directly to the OpenAI Responses API (as base64 file
-data) — no local OCR or text-extraction step. GPT-4o reads both the
-extracted text and rendered page images internally.
+The PDF is sent directly to the Messages API (as base64 document data) —
+no local OCR or text-extraction step. Claude reads the PDF's embedded text
+and rendered page images internally.
 """
 
 import base64
 import json
 
+from anthropic import Anthropic
 from dotenv import load_dotenv
-from openai import OpenAI
 
 load_dotenv()
 
-client = OpenAI()  # reads OPENAI_API_KEY from env
+client = Anthropic()  # reads ANTHROPIC_API_KEY from env
 
-# All fields are nullable-and-required rather than optional: OpenAI's
-# strict structured-output mode requires every property to be listed in
-# "required", so "the model couldn't find this" is expressed as an
-# explicit null rather than an absent field.
+MODEL = "claude-haiku-4-5"
+
 TAX_NOTICE_SCHEMA = {
     "type": "object",
     "properties": {
-        "tax_year": {"type": ["integer", "null"], "description": "The tax year referenced in the notice"},
-        "notice_type": {"type": ["string", "null"], "description": "e.g. CP2000, balance due, audit notice"},
+        "tax_year": {"type": "integer", "description": "The tax year referenced in the notice"},
+        "notice_type": {"type": "string", "description": "e.g. CP2000, balance due, audit notice"},
         "amount_due": {"type": ["number", "null"], "description": "Total amount owed, if stated"},
         "issuing_agency": {"type": ["string", "null"], "description": "e.g. IRS, state department of revenue"},
-        "summary": {"type": ["string", "null"], "description": "1-2 sentence plain-language summary"},
+        "summary": {"type": "string", "description": "1-2 sentence plain-language summary"},
     },
-    "required": ["tax_year", "notice_type", "amount_due", "issuing_agency", "summary"],
+    "required": ["tax_year", "notice_type", "summary"],
     "additionalProperties": False,
 }
 
 
 def extract_tax_fields(pdf_bytes: bytes, filename: str) -> dict:
-    base64_pdf = base64.b64encode(pdf_bytes).decode("utf-8")
+    base64_pdf = base64.standard_b64encode(pdf_bytes).decode("utf-8")
 
-    response = client.responses.create(
-        model="gpt-4o",
-        input=[
+    response = client.messages.create(
+        model=MODEL,
+        max_tokens=1024,
+        messages=[
             {
                 "role": "user",
                 "content": [
                     {
-                        "type": "input_file",
-                        "filename": filename,
-                        "file_data": f"data:application/pdf;base64,{base64_pdf}",
+                        "type": "document",
+                        "title": filename,
+                        "source": {
+                            "type": "base64",
+                            "media_type": "application/pdf",
+                            "data": base64_pdf,
+                        },
                     },
                     {
-                        "type": "input_text",
+                        "type": "text",
                         "text": "Extract the requested fields from this tax notice PDF.",
                     },
                 ],
             }
         ],
-        text={
+        output_config={
             "format": {
                 "type": "json_schema",
-                "name": "tax_notice",
                 "schema": TAX_NOTICE_SCHEMA,
-                "strict": True,
             }
         },
     )
 
-    if not response.output_text:
-        raise ValueError("OpenAI returned no text content for this notice")
+    text = next((block.text for block in response.content if block.type == "text"), None)
+    if text is None:
+        raise ValueError("Claude returned no text content for this notice")
 
-    return json.loads(response.output_text)
+    return json.loads(text)

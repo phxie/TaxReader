@@ -1,5 +1,5 @@
 import { useEffect, useState } from "react";
-import { documentFileUrl, listDocuments, uploadDocument, type TaxDocument } from "./api";
+import { deleteDocument, documentFileUrl, listDocuments, uploadDocument, type TaxDocument } from "./api";
 
 function display(value: string | number | null): string {
   return value === null ? "—" : String(value);
@@ -19,6 +19,17 @@ export default function App() {
       .then(setDocuments)
       .catch((e) => setError(e.message));
   }, []);
+
+  async function handleDelete(doc: TaxDocument) {
+    if (!window.confirm(`Delete ${doc.filename}? This cannot be undone.`)) return;
+
+    try {
+      await deleteDocument(doc.id);
+      setDocuments((prev) => prev.filter((d) => d.id !== doc.id));
+    } catch (err) {
+      setError(err instanceof Error ? err.message : String(err));
+    }
+  }
 
   async function handleFileChange(e: React.ChangeEvent<HTMLInputElement>) {
     const file = e.target.files?.[0];
@@ -42,7 +53,7 @@ export default function App() {
       <h1>TaxReader</h1>
 
       <label className="upload-button">
-        {isUploading ? "Processing with GPT-4o…" : "Upload a tax notice PDF"}
+        {isUploading ? "Processing with Claude Haiku…" : "Upload a tax notice PDF"}
         <input
           type="file"
           accept="application/pdf"
@@ -78,7 +89,10 @@ export default function App() {
                 <a href={documentFileUrl(doc.id)} target="_blank" rel="noreferrer">
                   View
                 </a>{" "}
-                <a href={documentFileUrl(doc.id, true)}>Download</a>
+                <a href={documentFileUrl(doc.id, true)}>Download</a>{" "}
+                <button type="button" onClick={() => handleDelete(doc)}>
+                  Delete
+                </button>
               </td>
             </tr>
           ))}

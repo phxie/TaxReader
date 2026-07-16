@@ -75,3 +75,8 @@ def list_documents(conn: sqlite3.Connection) -> list[dict]:
 def get_document(conn: sqlite3.Connection, doc_id: int) -> Optional[dict]:
     row = conn.execute("SELECT * FROM documents WHERE id = ?", (doc_id,)).fetchone()
     return dict(row) if row else None
+
+
+def delete_document(conn: sqlite3.Connection, doc_id: int) -> None:
+    conn.execute("DELETE FROM documents WHERE id = ?", (doc_id,))
+    conn.commit()

@@ -31,3 +31,11 @@ export async function uploadDocument(file: File): Promise<TaxDocument> {
 export function documentFileUrl(id: number, download = false): string {
   return `/api/documents/${id}/file${download ? "?download=1" : ""}`;
 }
+
+export async function deleteDocument(id: number): Promise<void> {
+  const res = await fetch(`/api/documents/${id}`, { method: "DELETE" });
+  if (!res.ok) {
+    const body = await res.json().catch(() => ({}));
+    throw new Error(body.error ?? `Delete failed: ${res.status}`);
+  }
+}

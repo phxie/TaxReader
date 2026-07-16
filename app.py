@@ -51,6 +51,20 @@ def list_documents():
         return jsonify(db.list_documents(conn))
 
 
+@app.delete("/api/documents/<int:doc_id>")
+def delete_document(doc_id):
+    with db.get_connection() as conn:
+        document = db.get_document(conn, doc_id)
+        if document is None:
+            return jsonify({"error": "Document not found"}), 404
+
+        if os.path.exists(document["file_path"]):
+            os.remove(document["file_path"])
+        db.delete_document(conn, doc_id)
+
+    return "", 204
+
+
 @app.get("/api/documents/<int:doc_id>/file")
 def get_document_file(doc_id):
     with db.get_connection() as conn:
