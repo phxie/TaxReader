@@ -40,3 +40,16 @@ export async function deleteDocument(id: number): Promise<void> {
     throw new Error(body.error ?? `Delete failed: ${res.status}`);
   }
 }
+
+export async function updateDocumentStatus(id: number, status: string): Promise<TaxDocument> {
+  const res = await fetch(`/api/documents/${id}`, {
+    method: "PATCH",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ status }),
+  });
+  if (!res.ok) {
+    const body = await res.json().catch(() => ({}));
+    throw new Error(body.error ?? `Status update failed: ${res.status}`);
+  }
+  return res.json();
+}

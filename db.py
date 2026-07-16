@@ -81,3 +81,8 @@ def get_document(conn: sqlite3.Connection, doc_id: int) -> Optional[dict]:
 def delete_document(conn: sqlite3.Connection, doc_id: int) -> None:
     conn.execute("DELETE FROM documents WHERE id = ?", (doc_id,))
     conn.commit()
+
+
+def update_status(conn: sqlite3.Connection, doc_id: int, status: str) -> None:
+    conn.execute("UPDATE documents SET status = ? WHERE id = ?", (status, doc_id))
+    conn.commit()

@@ -51,6 +51,25 @@ def list_documents():
         return jsonify(db.list_documents(conn))
 
 
+VALID_STATUSES = {"open", "closed"}
+
+
+@app.patch("/api/documents/<int:doc_id>")
+def update_document_status(doc_id):
+    status = (request.get_json(silent=True) or {}).get("status")
+    if status not in VALID_STATUSES:
+        return jsonify({"error": f"status must be one of {sorted(VALID_STATUSES)}"}), 400
+
+    with db.get_connection() as conn:
+        if db.get_document(conn, doc_id) is None:
+            return jsonify({"error": "Document not found"}), 404
+
+        db.update_status(conn, doc_id, status)
+        document = db.get_document(conn, doc_id)
+
+    return jsonify(document)
+
+
 @app.delete("/api/documents/<int:doc_id>")
 def delete_document(doc_id):
     with db.get_connection() as conn:
