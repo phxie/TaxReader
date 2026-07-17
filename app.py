@@ -6,6 +6,7 @@ from werkzeug.utils import secure_filename
 
 import db
 import extract
+import sheets
 
 TAXDOCS_DIR = os.path.join(os.path.dirname(__file__), "taxdocs")
 
@@ -49,6 +50,19 @@ def upload_document():
 def list_documents():
     with db.get_connection() as conn:
         return jsonify(db.list_documents(conn))
+
+
+@app.post("/api/documents/sync-sheet")
+def sync_sheet():
+    with db.get_connection() as conn:
+        documents = db.list_documents(conn)
+
+    try:
+        synced = sheets.sync_documents(documents)
+    except Exception as e:
+        return jsonify({"error": str(e)}), 502
+
+    return jsonify({"synced": synced})
 
 
 VALID_STATUSES = {"open", "closed"}

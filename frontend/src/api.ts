@@ -53,3 +53,12 @@ export async function updateDocumentStatus(id: number, status: string): Promise<
   }
   return res.json();
 }
+
+export async function syncToSheet(): Promise<{ synced: number }> {
+  const res = await fetch("/api/documents/sync-sheet", { method: "POST" });
+  if (!res.ok) {
+    const body = await res.json().catch(() => ({}));
+    throw new Error(body.error ?? `Sync failed: ${res.status}`);
+  }
+  return res.json();
+}
