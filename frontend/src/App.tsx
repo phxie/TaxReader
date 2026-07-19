@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import {
   deleteDocument,
   documentFileUrl,
@@ -36,12 +36,64 @@ function StatusPill({ status, onClick }: { status: string; onClick: () => void }
   );
 }
 
+const SORT_OPTIONS = [
+  { value: "uploaded_desc", label: "Upload Date (Newest)" },
+  { value: "uploaded_asc", label: "Upload Date (Oldest)" },
+  { value: "notice_date_desc", label: "Notice Date (Newest)" },
+  { value: "notice_date_asc", label: "Notice Date (Oldest)" },
+  { value: "tax_year_desc", label: "Tax Year (Newest)" },
+  { value: "tax_year_asc", label: "Tax Year (Oldest)" },
+  { value: "amount_due_desc", label: "Amount Due (High to Low)" },
+  { value: "amount_due_asc", label: "Amount Due (Low to High)" },
+  { value: "status", label: "Status" },
+  { value: "filename", label: "Source Document (A–Z)" },
+] as const;
+
+type SortValue = (typeof SORT_OPTIONS)[number]["value"];
+
+// Nullable values always sort to the end, regardless of direction.
+function compareNullable<T>(a: T | null, b: T | null, compare: (a: T, b: T) => number): number {
+  if (a === null && b === null) return 0;
+  if (a === null) return 1;
+  if (b === null) return -1;
+  return compare(a, b);
+}
+
+function sortDocuments(docs: TaxDocument[], sortBy: SortValue): TaxDocument[] {
+  const sorted = [...docs];
+  switch (sortBy) {
+    case "uploaded_desc":
+      return sorted.sort((a, b) => b.uploaded_at.localeCompare(a.uploaded_at));
+    case "uploaded_asc":
+      return sorted.sort((a, b) => a.uploaded_at.localeCompare(b.uploaded_at));
+    case "notice_date_desc":
+      return sorted.sort((a, b) => compareNullable(a.notice_date, b.notice_date, (x, y) => y.localeCompare(x)));
+    case "notice_date_asc":
+      return sorted.sort((a, b) => compareNullable(a.notice_date, b.notice_date, (x, y) => x.localeCompare(y)));
+    case "tax_year_desc":
+      return sorted.sort((a, b) => compareNullable(a.tax_year, b.tax_year, (x, y) => y - x));
+    case "tax_year_asc":
+      return sorted.sort((a, b) => compareNullable(a.tax_year, b.tax_year, (x, y) => x - y));
+    case "amount_due_desc":
+      return sorted.sort((a, b) => compareNullable(a.amount_due, b.amount_due, (x, y) => y - x));
+    case "amount_due_asc":
+      return sorted.sort((a, b) => compareNullable(a.amount_due, b.amount_due, (x, y) => x - y));
+    case "status":
+      return sorted.sort((a, b) => a.status.localeCompare(b.status));
+    case "filename":
+      return sorted.sort((a, b) => a.filename.localeCompare(b.filename));
+  }
+}
+
 export default function App() {
   const [documents, setDocuments] = useState<TaxDocument[]>([]);
   const [isUploading, setIsUploading] = useState(false);
   const [isSyncing, setIsSyncing] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [syncMessage, setSyncMessage] = useState<string | null>(null);
+  const [sortBy, setSortBy] = useState<SortValue>("uploaded_desc");
+
+  const sortedDocuments = useMemo(() => sortDocuments(documents, sortBy), [documents, sortBy]);
 
   useEffect(() => {
     listDocuments()
@@ -159,6 +211,24 @@ export default function App() {
           </div>
         )}
 
+        <div className="mb-3 flex items-center justify-end gap-2">
+          <label htmlFor="sort" className="text-sm text-gray-500">
+            Sort by
+          </label>
+          <select
+            id="sort"
+            value={sortBy}
+            onChange={(e) => setSortBy(e.target.value as SortValue)}
+            className="rounded-lg border border-gray-300 bg-white px-3 py-1.5 text-sm text-gray-700 shadow-sm focus:border-indigo-500 focus:outline-none focus:ring-1 focus:ring-indigo-500"
+          >
+            {SORT_OPTIONS.map((opt) => (
+              <option key={opt.value} value={opt.value}>
+                {opt.label}
+              </option>
+            ))}
+          </select>
+        </div>
+
         <div className="overflow-hidden rounded-xl border border-gray-200 bg-white shadow-sm">
           <div className="overflow-x-auto">
             <table className="w-full text-left text-sm">
@@ -175,7 +245,7 @@ export default function App() {
                 </tr>
               </thead>
               <tbody className="divide-y divide-gray-100">
-                {documents.map((doc) => (
+                {sortedDocuments.map((doc) => (
                   <tr key={doc.id} className="hover:bg-gray-50">
                     <td className="px-4 py-3 font-medium text-gray-900">{doc.filename}</td>
                     <td className="px-4 py-3 text-gray-600">{display(doc.notice_date)}</td>
