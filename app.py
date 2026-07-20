@@ -76,18 +76,22 @@ def sync_sheet():
     return jsonify({"documents": result, "synced": len(result)})
 
 
-VALID_STATUSES = {"open", "closed"}
-
-
 @app.patch("/api/documents/<int:doc_id>")
 def update_document_status(doc_id):
     status = (request.get_json(silent=True) or {}).get("status")
-    if status not in VALID_STATUSES:
-        return jsonify({"error": f"status must be one of {sorted(VALID_STATUSES)}"}), 400
+    if status not in sheets.VALID_STATUSES:
+        return jsonify({"error": f"status must be one of {sheets.VALID_STATUSES}"}), 400
 
     with db.get_connection() as conn:
-        if db.get_document(conn, doc_id) is None:
+        document = db.get_document(conn, doc_id)
+        if document is None:
             return jsonify({"error": "Document not found"}), 404
+
+        stored_file = os.path.basename(document["file_path"]) if document["file_path"] else ""
+        try:
+            sheets.update_status(document["filename"], stored_file, status)
+        except Exception as e:
+            return jsonify({"error": str(e)}), 502
 
         db.update_status(conn, doc_id, status)
         document = db.get_document(conn, doc_id)
@@ -101,6 +105,12 @@ def delete_document(doc_id):
         document = db.get_document(conn, doc_id)
         if document is None:
             return jsonify({"error": "Document not found"}), 404
+
+        stored_file = os.path.basename(document["file_path"]) if document["file_path"] else ""
+        try:
+            sheets.delete_document(document["filename"], stored_file)
+        except Exception as e:
+            return jsonify({"error": str(e)}), 502
 
         if os.path.exists(document["file_path"]):
             os.remove(document["file_path"])

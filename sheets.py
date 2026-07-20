@@ -45,11 +45,51 @@ HEADERS = [
     "Stored File",
 ]
 
+VALID_STATUSES = ["open", "closed"]
+
 
 def _get_sheets_service():
     service_account_file = os.environ["GOOGLE_SERVICE_ACCOUNT_FILE"]
     credentials = service_account.Credentials.from_service_account_file(service_account_file, scopes=SCOPES)
     return build("sheets", "v4", credentials=credentials)
+
+
+def _get_sheet_id(service, spreadsheet_id: str, sheet_name: str) -> int:
+    meta = service.spreadsheets().get(spreadsheetId=spreadsheet_id).execute()
+    return next(s["properties"]["sheetId"] for s in meta["sheets"] if s["properties"]["title"] == sheet_name)
+
+
+def _apply_status_dropdown(service, spreadsheet_id: str, sheet_name: str) -> None:
+    """Restrict the Status column (below the header) to a dropdown of VALID_STATUSES.
+    The range's endRowIndex is left unbounded so rows appended later are covered too."""
+    sheet_id = _get_sheet_id(service, spreadsheet_id, sheet_name)
+    status_column = COLUMNS.index("status")
+
+    service.spreadsheets().batchUpdate(
+        spreadsheetId=spreadsheet_id,
+        body={
+            "requests": [
+                {
+                    "setDataValidation": {
+                        "range": {
+                            "sheetId": sheet_id,
+                            "startRowIndex": 1,  # skip header row
+                            "startColumnIndex": status_column,
+                            "endColumnIndex": status_column + 1,
+                        },
+                        "rule": {
+                            "condition": {
+                                "type": "ONE_OF_LIST",
+                                "values": [{"userEnteredValue": status} for status in VALID_STATUSES],
+                            },
+                            "showCustomUi": True,
+                            "strict": True,
+                        },
+                    }
+                }
+            ]
+        },
+    ).execute()
 
 
 def _ensure_header(service, spreadsheet_id: str, sheet_name: str) -> None:
@@ -61,6 +101,7 @@ def _ensure_header(service, spreadsheet_id: str, sheet_name: str) -> None:
             valueInputOption="RAW",
             body={"values": [HEADERS]},
         ).execute()
+    _apply_status_dropdown(service, spreadsheet_id, sheet_name)
 
 
 def append_document(filename: str, file_path: str, uploaded_at: str, fields: dict) -> None:
@@ -89,6 +130,67 @@ def append_document(filename: str, file_path: str, uploaded_at: str, fields: dic
         valueInputOption="RAW",
         insertDataOption="INSERT_ROWS",
         body={"values": [row]},
+    ).execute()
+
+
+def _find_row_index(service, spreadsheet_id: str, sheet_name: str, filename: str, stored_file: str) -> int | None:
+    """0-indexed row position (including the header row) of the first matching document,
+    or None if not found. Matches by stored_file when available (unique per upload);
+    falls back to filename for legacy rows written before that column existed."""
+    result = service.spreadsheets().values().get(spreadsheetId=spreadsheet_id, range=sheet_name).execute()
+    rows = result.get("values", [])
+    for i, row in enumerate(rows):
+        if i == 0:
+            continue  # header
+        row = row + [""] * (len(COLUMNS) - len(row))
+        values_map = dict(zip(COLUMNS, row))
+        if stored_file:
+            if values_map["stored_file"] == stored_file:
+                return i
+        elif values_map["filename"] == filename:
+            return i
+    return None
+
+
+def update_status(filename: str, stored_file: str, status: str) -> None:
+    spreadsheet_id = os.environ["GOOGLE_SHEET_ID"]
+    sheet_name = os.environ.get("GOOGLE_SHEET_NAME", "Sheet1")
+    service = _get_sheets_service()
+
+    row_index = _find_row_index(service, spreadsheet_id, sheet_name, filename, stored_file)
+    if row_index is None:
+        raise ValueError(f"{filename!r} not found in the sheet")
+
+    status_column = chr(ord("A") + COLUMNS.index("status"))
+    service.spreadsheets().values().update(
+        spreadsheetId=spreadsheet_id,
+        range=f"{sheet_name}!{status_column}{row_index + 1}",
+        valueInputOption="RAW",
+        body={"values": [[status]]},
+    ).execute()
+
+
+def delete_document(filename: str, stored_file: str) -> None:
+    spreadsheet_id = os.environ["GOOGLE_SHEET_ID"]
+    sheet_name = os.environ.get("GOOGLE_SHEET_NAME", "Sheet1")
+    service = _get_sheets_service()
+
+    row_index = _find_row_index(service, spreadsheet_id, sheet_name, filename, stored_file)
+    if row_index is None:
+        raise ValueError(f"{filename!r} not found in the sheet")
+
+    sheet_id = _get_sheet_id(service, spreadsheet_id, sheet_name)
+    service.spreadsheets().batchUpdate(
+        spreadsheetId=spreadsheet_id,
+        body={
+            "requests": [
+                {
+                    "deleteDimension": {
+                        "range": {"sheetId": sheet_id, "dimension": "ROWS", "startIndex": row_index, "endIndex": row_index + 1}
+                    }
+                }
+            ]
+        },
     ).execute()
 
 
