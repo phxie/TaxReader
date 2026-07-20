@@ -90,7 +90,7 @@ export default function App() {
   const [isUploading, setIsUploading] = useState(false);
   const [isSyncing, setIsSyncing] = useState(false);
   const [error, setError] = useState<string | null>(null);
-  const [syncMessage, setSyncMessage] = useState<string | null>(null);
+  const [message, setMessage] = useState<string | null>(null);
   const [sortBy, setSortBy] = useState<SortValue>("uploaded_desc");
 
   const sortedDocuments = useMemo(() => sortDocuments(documents, sortBy), [documents, sortBy]);
@@ -114,10 +114,11 @@ export default function App() {
   async function handleSync() {
     setIsSyncing(true);
     setError(null);
-    setSyncMessage(null);
+    setMessage(null);
     try {
       const result = await syncToSheet();
-      setSyncMessage(`Synced ${result.synced} document${result.synced === 1 ? "" : "s"} to Google Sheet.`);
+      setDocuments(result.documents);
+      setMessage(`Synced ${result.synced} document${result.synced === 1 ? "" : "s"} from Google Sheet.`);
     } catch (err) {
       setError(err instanceof Error ? err.message : String(err));
     } finally {
@@ -143,9 +144,10 @@ export default function App() {
 
     setIsUploading(true);
     setError(null);
+    setMessage(null);
     try {
-      const document = await uploadDocument(file);
-      setDocuments((prev) => [document, ...prev]);
+      const fields = await uploadDocument(file);
+      setMessage(`${fields.filename} uploaded and added to the Google Sheet. Click "Sync from Google Sheet" to view it here.`);
     } catch (err) {
       setError(err instanceof Error ? err.message : String(err));
     } finally {
@@ -176,7 +178,7 @@ export default function App() {
               {isSyncing && (
                 <span className="h-3.5 w-3.5 animate-spin rounded-full border-2 border-indigo-300 border-t-indigo-600" />
               )}
-              {isSyncing ? "Syncing…" : "Sync to Google Sheet"}
+              {isSyncing ? "Syncing…" : "Sync from Google Sheet"}
             </button>
 
             <label
@@ -205,9 +207,9 @@ export default function App() {
           </div>
         )}
 
-        {syncMessage && (
+        {message && (
           <div className="mb-6 rounded-lg border border-green-200 bg-green-50 px-4 py-3 text-sm text-green-700">
-            {syncMessage}
+            {message}
           </div>
         )}
 

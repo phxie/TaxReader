@@ -1,15 +1,17 @@
 """
-SQLite storage for uploaded tax notice PDFs and their Claude-extracted
-fields. Each upload is a new row (no dedup/upsert needed).
+SQLite storage for the dashboard's local view of the documents tracked in
+the Google Sheet. The Sheet is the source of truth: `replace_all_documents`
+is how a "Sync" pull replaces the local table wholesale with the Sheet's
+current contents. Uploads no longer write here directly — they write to the
+Sheet (see `sheets.py`), and only show up locally after the next sync.
 
 WAL mode is enabled so the Flask app can read and write concurrently
 without lock errors.
 """
 
-import os
 import sqlite3
+import os
 from contextlib import contextmanager
-from datetime import datetime, timezone
 from typing import Iterator, Optional
 
 SCHEMA = """
@@ -45,27 +47,18 @@ def init_schema(conn: sqlite3.Connection) -> None:
     conn.commit()
 
 
-def insert_document(conn: sqlite3.Connection, filename: str, file_path: str, fields: dict) -> int:
-    cursor = conn.execute(
+def replace_all_documents(conn: sqlite3.Connection, documents: list[dict]) -> None:
+    """Wholesale replace the local table with rows pulled from the Google Sheet."""
+    conn.execute("DELETE FROM documents")
+    conn.executemany(
         """
         INSERT INTO documents
             (filename, file_path, uploaded_at, notice_date, tax_year, jurisdiction, issue_summary, amount_due, status)
-        VALUES (?, ?, ?, ?, ?, ?, ?, ?, 'open')
+        VALUES (:filename, :file_path, :uploaded_at, :notice_date, :tax_year, :jurisdiction, :issue_summary, :amount_due, :status)
         """,
-        (
-            filename,
-            file_path,
-            datetime.now(timezone.utc).isoformat(),
-            fields.get("notice_date"),
-            fields.get("tax_year"),
-            fields.get("jurisdiction"),
-            fields.get("issue_summary"),
-            fields.get("amount_due"),
-        ),
+        documents,
     )
     conn.commit()
-    assert cursor.lastrowid is not None
-    return cursor.lastrowid
 
 
 def list_documents(conn: sqlite3.Connection) -> list[dict]:

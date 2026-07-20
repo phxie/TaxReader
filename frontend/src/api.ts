@@ -17,7 +17,16 @@ export async function listDocuments(): Promise<TaxDocument[]> {
   return res.json();
 }
 
-export async function uploadDocument(file: File): Promise<TaxDocument> {
+export interface ExtractedFields {
+  filename: string;
+  notice_date: string | null;
+  tax_year: number | null;
+  jurisdiction: string | null;
+  issue_summary: string | null;
+  amount_due: number | null;
+}
+
+export async function uploadDocument(file: File): Promise<ExtractedFields> {
   const form = new FormData();
   form.append("file", file);
 
@@ -54,7 +63,7 @@ export async function updateDocumentStatus(id: number, status: string): Promise<
   return res.json();
 }
 
-export async function syncToSheet(): Promise<{ synced: number }> {
+export async function syncToSheet(): Promise<{ documents: TaxDocument[]; synced: number }> {
   const res = await fetch("/api/documents/sync-sheet", { method: "POST" });
   if (!res.ok) {
     const body = await res.json().catch(() => ({}));

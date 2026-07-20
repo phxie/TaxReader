@@ -1,5 +1,6 @@
 import os
 import uuid
+from datetime import datetime, timezone
 
 from flask import Flask, jsonify, request, send_file
 from werkzeug.utils import secure_filename
@@ -39,11 +40,14 @@ def upload_document():
         os.remove(file_path)
         return jsonify({"error": str(e)}), 502
 
-    with db.get_connection() as conn:
-        doc_id = db.insert_document(conn, file.filename, file_path, fields)
-        document = db.get_document(conn, doc_id)
+    uploaded_at = datetime.now(timezone.utc).isoformat()
+    try:
+        sheets.append_document(file.filename, file_path, uploaded_at, fields)
+    except Exception as e:
+        os.remove(file_path)
+        return jsonify({"error": str(e)}), 502
 
-    return jsonify(document), 201
+    return jsonify({"filename": file.filename, **fields}), 201
 
 
 @app.get("/api/documents")
@@ -54,15 +58,22 @@ def list_documents():
 
 @app.post("/api/documents/sync-sheet")
 def sync_sheet():
-    with db.get_connection() as conn:
-        documents = db.list_documents(conn)
-
     try:
-        synced = sheets.sync_documents(documents)
+        sheet_rows = sheets.fetch_documents()
     except Exception as e:
         return jsonify({"error": str(e)}), 502
 
-    return jsonify({"synced": synced})
+    documents = []
+    for row in sheet_rows:
+        stored_file = row.pop("stored_file")
+        row["file_path"] = os.path.join(TAXDOCS_DIR, stored_file) if stored_file else ""
+        documents.append(row)
+
+    with db.get_connection() as conn:
+        db.replace_all_documents(conn, documents)
+        result = db.list_documents(conn)
+
+    return jsonify({"documents": result, "synced": len(result)})
 
 
 VALID_STATUSES = {"open", "closed"}
