@@ -88,6 +88,8 @@ function sortDocuments(docs: TaxDocument[], sortBy: SortValue): TaxDocument[] {
 export default function App() {
   const [documents, setDocuments] = useState<TaxDocument[]>([]);
   const [isUploading, setIsUploading] = useState(false);
+  const [isBatchUploading, setIsBatchUploading] = useState(false);
+  const [batchProgress, setBatchProgress] = useState<{ current: number; total: number } | null>(null);
   const [isSyncing, setIsSyncing] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [message, setMessage] = useState<string | null>(null);
@@ -155,6 +157,42 @@ export default function App() {
     }
   }
 
+  async function handleBatchFileChange(e: React.ChangeEvent<HTMLInputElement>) {
+    const files = Array.from(e.target.files ?? []);
+    e.target.value = "";
+    if (files.length === 0) return;
+
+    setIsBatchUploading(true);
+    setError(null);
+    setMessage(null);
+    setBatchProgress({ current: 0, total: files.length });
+
+    let succeeded = 0;
+    const failures: string[] = [];
+
+    for (const [i, file] of files.entries()) {
+      try {
+        await uploadDocument(file);
+        succeeded++;
+      } catch (err) {
+        failures.push(`${file.name}: ${err instanceof Error ? err.message : String(err)}`);
+      }
+      setBatchProgress({ current: i + 1, total: files.length });
+    }
+
+    setBatchProgress(null);
+    setIsBatchUploading(false);
+
+    if (succeeded > 0) {
+      setMessage(
+        `${succeeded} of ${files.length} document${files.length === 1 ? "" : "s"} uploaded and added to the Google Sheet. Click "Sync from Google Sheet" to view ${succeeded === 1 ? "it" : "them"} here.`,
+      );
+    }
+    if (failures.length > 0) {
+      setError(`${failures.length} file${failures.length === 1 ? "" : "s"} failed to upload: ${failures.join("; ")}`);
+    }
+  }
+
   return (
     <div className="min-h-screen bg-gray-50">
       <main className="mx-auto max-w-6xl px-4 py-10">
@@ -182,8 +220,31 @@ export default function App() {
             </button>
 
             <label
+              className={`inline-flex cursor-pointer items-center gap-2 rounded-lg border px-4 py-2 text-sm font-medium shadow-sm transition-colors ${
+                isBatchUploading || isUploading
+                  ? "cursor-not-allowed border-gray-300 bg-gray-100 text-gray-400"
+                  : "border-indigo-600 text-indigo-600 hover:bg-indigo-50"
+              }`}
+            >
+              {isBatchUploading && (
+                <span className="h-3.5 w-3.5 animate-spin rounded-full border-2 border-indigo-300 border-t-indigo-600" />
+              )}
+              {isBatchUploading
+                ? `Uploading ${batchProgress?.current ?? 0} of ${batchProgress?.total ?? 0}…`
+                : "Batch Upload PDFs"}
+              <input
+                type="file"
+                accept="application/pdf"
+                multiple
+                onChange={handleBatchFileChange}
+                disabled={isBatchUploading || isUploading}
+                className="hidden"
+              />
+            </label>
+
+            <label
               className={`inline-flex cursor-pointer items-center gap-2 rounded-lg px-4 py-2 text-sm font-medium text-white shadow-sm transition-colors ${
-                isUploading ? "cursor-not-allowed bg-gray-400" : "bg-indigo-600 hover:bg-indigo-700"
+                isUploading || isBatchUploading ? "cursor-not-allowed bg-gray-400" : "bg-indigo-600 hover:bg-indigo-700"
               }`}
             >
               {isUploading && (
@@ -194,7 +255,7 @@ export default function App() {
                 type="file"
                 accept="application/pdf"
                 onChange={handleFileChange}
-                disabled={isUploading}
+                disabled={isUploading || isBatchUploading}
                 className="hidden"
               />
             </label>
