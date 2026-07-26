@@ -198,7 +198,7 @@ export default function App() {
       <main className="mx-auto max-w-6xl px-4 py-10">
         <header className="mb-8 flex items-center justify-between">
           <div>
-            <h1 className="text-2xl font-semibold text-gray-900">TaxReader</h1>
+            <h1 className="text-2xl font-semibold text-gray-900">TaxNoticeAccelerator</h1>
             <p className="text-sm text-gray-500">Upload tax notices and let Claude extract the details.</p>
           </div>
 
