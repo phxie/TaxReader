@@ -8,7 +8,7 @@ with GPT-4o. Flask backend + React (Vite/TypeScript) frontend.
 
 - [uv](https://docs.astral.sh/uv/) (Python package/env manager)
 - Node.js (for the frontend)
-- An OpenAI API key with GPT-4o access
+- An Anthropic API key
 
 ## Setup
 
@@ -16,7 +16,7 @@ with GPT-4o. Flask backend + React (Vite/TypeScript) frontend.
 cp .env.example .env
 ```
 
-Edit `.env` and set `OPENAI_API_KEY`.
+Edit `.env` and set `ANTHROPIC_API_KE`.
 
 ## Running
 
@@ -52,7 +52,7 @@ API calls or touches the real `taxreader.db`/`taxdocs/`.
 ## Project layout
 
 - `app.py` — Flask app: upload, list, and file-download routes
-- `extract.py` — sends uploaded PDFs to GPT-4o and returns extracted fields
+- `extract.py` — sends uploaded PDFs to Claude and returns extracted fields
 - `db.py` — SQLite storage (`taxreader.db`, path configurable via `DB_PATH`)
 - `frontend/` — React + TypeScript dashboard
 - `taxdocs/` — uploaded PDFs are stored here (not committed)
