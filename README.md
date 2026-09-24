@@ -16,7 +16,7 @@ with GPT-4o. Flask backend + React (Vite/TypeScript) frontend.
 cp .env.example .env
 ```
 
-Edit `.env` and set `ANTHROPIC_API_KE`.
+Edit `.env` and set `ANTHROPIC_API_KEY`.
 
 ## Running
 
